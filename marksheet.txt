@@ -1,0 +1,68 @@
+-------------------------------------------------------------------------------
+
+1. Instructions
+
+- replace any [...] with free text,
+  and
+- replace the [?] with an X if you have completed that stage,
+- replace the [?] with an * if you have attempted that stage, but you know
+  it doesn't work completely; document why you think it doesn't work, plus
+  what you would do to fix the problem, at the end of the marksheet.
+
+-------------------------------------------------------------------------------
+
+2. Information
+
+So that we can calibrate and improve the assignment in the future, give us
+a rough idea how long (in hours) you spent on it *in total*:
+
+effort : [...] hours
+
+-------------------------------------------------------------------------------
+
+3. Citation
+
+Clearly it might have an influence on your mark, but the use of third-party
+resources *is* allowed *if* correctly cited (unless explicitly prohibited 
+by the assignment description of course).  Let us know what third-party 
+source code or resources you used (if any) so it's clear what's your work 
+and what isn't:
+
+[...]
+
+-------------------------------------------------------------------------------
+
+4. Marking
+
+The following gives a stage-by-stage description of the assignment marking
+scheme.  Note this acts as an indicative guideline only, including weights
+for each more obvious aspect (e.g., functional correctness); other aspects
+outside this list can warrant an increase/decrease in marks, with examples
+including hard to quantify features such as style, efficiency, robustness, 
+generality, or realism of a solution.  Put another way, identifying then
+reasoning about these latter aspects forms part of the assessment, so they
+are not (necessarily) detailed explicitly.
+
+[?] Stage 1 : a  attack target  implementation                       ( 30%)
+
+    Stage 2 : an attack         implementation
+[?]           - an   assisted (or   dependent) solution              ( 30%)
+                *OR*
+[?]           - an unassisted (or independent) solution              ( 40%)
+
+[?] Stage 3 : a  countermeasure implementation                       ( 30%)
+
+                                                                     ------
+                                                                     (100%)
+
+-------------------------------------------------------------------------------
+
+5. Documentation
+
+Any other documentation, notes or comments that you think are important or
+might be easy to overlook (e.g., a subtle issue or technique in associated
+source code) should go here:
+
+[...]
+
+-------------------------------------------------------------------------------
