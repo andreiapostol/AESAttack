@@ -34,20 +34,33 @@ void numToHex(uint8_t n, char* arr, int startIndex){
       hex[1] = '0';
       i = 2;
     }
-    for(int j=i-1; j>=0; j--)
-        arr[startIndex++] = hex[j];
+    for(int j=i-1; j>=0; j--){
+        // arr[startIndex++] = hex[j];
+        scale_uart_wr(SCALE_UART_MODE_BLOCKING, hex[j]);
+    }
 }
 
-void extra_octetstr_rd( char* r, int n_r, uint8_t* x){
+int _octetstr_rd( uint8_t* x, int n_r, char* r){
   uint8_t size = hexCharToNum(r[0]) * 16 + hexCharToNum(r[1]);
   for(int currentChar = 0; currentChar < size; currentChar++){
     uint8_t number = hexCharToNum(r[2*currentChar + 3]) * 16 + hexCharToNum(r[2*currentChar+ 4]);
     x[currentChar] = number;
   }
+  return size;
 }
 
-int  octetstr_rd(       uint8_t* r, int n_r ) {
-  return 0;
+int  octetstr_rd( uint8_t* r, int n_r          ) {
+     char x[ 2 + 1 + 2 * ( n_r ) + 1 ]; // 2-char length, 1-char colon, 2*n_r-char data, 1-char terminator
+
+     for( int i = 0; true; i++ ) {
+       x[ i ] = scale_uart_rd( SCALE_UART_MODE_BLOCKING );
+
+       if( x[ i ] == '\x0D' ) {
+         x[ i ] = '\x00'; break;
+       }
+     }
+
+     return _octetstr_rd( r, n_r, x );
 }
 
 
@@ -61,15 +74,40 @@ int  octetstr_rd(       uint8_t* r, int n_r ) {
 
 
 
-void extra_octetstr_wr( uint8_t* x, int n_r, char* r ){
-  numToHex(n_r, r, 0);
-  r[2] = ':';
-  for(int currentNum = 0; currentNum < n_r; currentNum++){
-    numToHex(x[currentNum], r, currentNum * 2 + 3);
-  }
+// void extra_octetstr_wr( uint8_t* x, int n_r, char* r ){
+//   numToHex(n_r, r, 0);
+//   r[2] = ':';
+//   for(int currentNum = 0; currentNum < n_r; currentNum++){
+//     numToHex(x[currentNum], r, currentNum * 2 + 3);
+//   }
+// }
+
+void numToHexUart(uint8_t n){
+    char hex[4];
+    int i = 0;
+    while(n!=0){
+        int mod  = n % 16;
+        hex[i] = mod < 10 ? mod + '0' : mod + 55;
+        i++;
+        n /= 16;
+    }
+    if(i == 1){
+      hex[1] = '0';
+      i = 2;
+    }
+    for(int j=i-1; j>=0; j--){
+        // arr[startIndex++] = hex[j];
+        scale_uart_wr(SCALE_UART_MODE_BLOCKING, hex[j]);
+    }
 }
 
 void octetstr_wr( const uint8_t* x, int n_x ) {
+  numToHexUart(n_x);
+  scale_uart_wr(SCALE_UART_MODE_BLOCKING, ':');
+  for(int i = 0; i < n_x; i++){
+    numToHexUart(x[i]);
+  }
+  scale_uart_wr(SCALE_UART_MODE_BLOCKING, '\x0D');
   return;
 }
 
@@ -143,6 +181,8 @@ int main( int argc, char* argv[] ) {
   uint8_t cmd[ 1 ], c[ SIZEOF_BLK ], m[ SIZEOF_BLK ], k[ SIZEOF_KEY ] = { 0xDB, 0xA2, 0xB8, 0xD5, 0x51, 0x52, 0x8D, 0x31, 0xE1, 0xAC, 0xF4, 0x0D, 0x4B, 0x2D, 0x66, 0x7E }, r[ SIZEOF_RND ];
   char x[] = "hello world";
   while( true ) {
+    scale_uart_wr(SCALE_UART_MODE_BLOCKING, '1');
+    scale_uart_wr(SCALE_UART_MODE_BLOCKING, '2');
 
     if( 1 != octetstr_rd( cmd, 1 ) ) {
       break;
