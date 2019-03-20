@@ -21,31 +21,33 @@ uint8_t hexCharToNum(char c){
   return c > '9' ? c - 55 : c - '0';
 }
 
-void numToHex(uint8_t n, char* arr, int startIndex){
-    char hex[4];
-    int i = 0;
-    while(n!=0){
-        int mod  = n % 16;
-        hex[i] = mod < 10 ? mod + '0' : mod + 55;
-        i++;
-        n /= 16;
-    }
-    if(i == 1){
-      hex[1] = '0';
-      i = 2;
-    }
-    for(int j=i-1; j>=0; j--){
-        // arr[startIndex++] = hex[j];
-        scale_uart_wr(SCALE_UART_MODE_BLOCKING, hex[j]);
-    }
-}
+// llallalal
+// void numToHex(uint8_t n, char* arr, int startIndex){
+//     char hex[4];
+//     int i = 0;
+//     while(n!=0){
+//         int mod  = n % 16;
+//         hex[i] = mod < 10 ? mod + '0' : mod + 55;
+//         i++;
+//         n /= 16;
+//     }
+//     if(i == 1){
+//       hex[1] = '0';
+//       i = 2;
+//     }
+//     for(int j=i-1; j>=0; j--){
+//         // arr[startIndex++] = hex[j];
+//         scale_uart_wr(SCALE_UART_MODE_BLOCKING, hex[j]);
+//     }
+// }
 
-int _octetstr_rd( uint8_t* x, int n_r, char* r){
-  uint8_t size = hexCharToNum(r[0]) * 16 + hexCharToNum(r[1]);
+int _octetstr_rd( uint8_t* r, int n_r, char* x){
+  uint8_t size = hexCharToNum(x[0]) * 16 + hexCharToNum(x[1]);
   for(int currentChar = 0; currentChar < size; currentChar++){
-    uint8_t number = hexCharToNum(r[2*currentChar + 3]) * 16 + hexCharToNum(r[2*currentChar+ 4]);
-    x[currentChar] = number;
+    uint8_t number = hexCharToNum(x[2*currentChar + 3]) * 16 + hexCharToNum(x[2*currentChar+ 4]);
+    r[currentChar] = number;
   }
+
   return size;
 }
 
@@ -92,6 +94,11 @@ void numToHexUart(uint8_t n){
         n /= 16;
     }
     if(i == 1){
+      hex[1] = '0';
+      i = 2;
+    }
+    if(i == 0){
+      hex[0] = '0';
       hex[1] = '0';
       i = 2;
     }
@@ -169,25 +176,29 @@ void aes     ( uint8_t* c, const uint8_t* m, const uint8_t* k, const uint8_t* r 
 
 int main( int argc, char* argv[] ) {
   if( !scale_init( &SCALE_CONF ) ) {
-    scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'N');
-    scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'O');
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'N');
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'O');
     return -1;
   }
 
-  scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'l');
-  scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'a');
-  scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'l');
-  scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'a');
+  // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'l');
+  // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'a');
+  // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'l');
+  // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'a');
   uint8_t cmd[ 1 ], c[ SIZEOF_BLK ], m[ SIZEOF_BLK ], k[ SIZEOF_KEY ] = { 0xDB, 0xA2, 0xB8, 0xD5, 0x51, 0x52, 0x8D, 0x31, 0xE1, 0xAC, 0xF4, 0x0D, 0x4B, 0x2D, 0x66, 0x7E }, r[ SIZEOF_RND ];
-  char x[] = "hello world";
+  // char x[] = "hello world";
   while( true ) {
-    scale_uart_wr(SCALE_UART_MODE_BLOCKING, '1');
-    scale_uart_wr(SCALE_UART_MODE_BLOCKING, '2');
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, '1');
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, '2');
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'G');
 
-    if( 1 != octetstr_rd( cmd, 1 ) ) {
+    int readstuff = octetstr_rd( cmd, 1 );
+    if( 1 !=  readstuff) {
+      scale_uart_wr( SCALE_UART_MODE_BLOCKING, readstuff + '0');
       break;
     }
     // read  the GPI     pin, and hence switch : t   <- GPI
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'H');
     bool t = scale_gpio_rd( SCALE_GPIO_PIN_GPI        );
     // write the GPO     pin, and hence LED    : GPO <- t
              scale_gpio_wr( SCALE_GPIO_PIN_GPO, t     );
@@ -200,26 +211,29 @@ int main( int argc, char* argv[] ) {
              scale_gpio_wr( SCALE_GPIO_PIN_TRG, false );
     // delay for 500 ms = 1/2 s
     scale_delay_ms( 500 );
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'I');
 
-    int n = strlen( x );
+    // int n = strlen( x );
 
     // write x = "hello world" to the UART
-    for( int i = 0; i < n; i++ ) {
-      scale_uart_wr( SCALE_UART_MODE_BLOCKING, x[ i ] );
-    }
+    // for( int i = 0; i < n; i++ ) {
+    //   scale_uart_wr( SCALE_UART_MODE_BLOCKING, x[ i ] );
+    // }
 
     switch( cmd[ 0 ] ) {
       case COMMAND_INSPECT : {
+        // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'A');
         uint8_t t = SIZEOF_BLK;
                     octetstr_wr( &t, 1 );
                 t = SIZEOF_KEY;
                     octetstr_wr( &t, 1 );
                 t = SIZEOF_RND;
                     octetstr_wr( &t, 1 );
-
+        // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'B');
         break;
       }
       case COMMAND_ENCRYPT : {
+        // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'C');
         if( SIZEOF_BLK != octetstr_rd( m, SIZEOF_BLK ) ) {
           break;
         }
@@ -238,10 +252,12 @@ int main( int argc, char* argv[] ) {
         break;
       }
       default : {
+        // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'D');
         break;
       }
     }
+    // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'F');
   }
-
+  // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'E');
   return 0;
 }

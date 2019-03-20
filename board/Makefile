@@ -17,7 +17,7 @@ endif
 PROJECT = target
 
 emulate-${PROJECT}        :
-	@python -O emulator.py --file="${PROJECT}.hex"         --host="127.0.0.1" --port="1234"
+	@python -O emulator.py --file="${PROJECT}.hex"         --host="127.0.0.1" --port="1235"
 emulate-${PROJECT}-term   :
 	@putty -raw -P 1234 127.0.0.1
 emulate-${PROJECT}-client :
