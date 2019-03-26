@@ -9,6 +9,7 @@
 #define __TARGET_H
 
 #include <scale/scale.h>
+#include "my_aes.h"
 
 #define COMMAND_INSPECT ( 0x00 )
 #define COMMAND_ENCRYPT ( 0x01 )

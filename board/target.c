@@ -17,6 +17,215 @@
 // uint8_t x[ 16 ] = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15
 // x=10:000102030405060708090A0B0C0D0E0F
 
+// -----------------------------------------------------------
+
+#define Nb 4
+#define Nr 10
+#define AES_ENC_RND_KEY_STEP(a,b,c,d) { \
+  s[ a ] = s[ a ] ^ rk[ a ]; \
+  s[ b ] = s[ b ] ^ rk[ b ]; \
+  s[ c ] = s[ c ] ^ rk[ c ]; \
+  s[ d ] = s[ d ] ^ rk[ d ]; \
+}
+
+#define AES_ENC_RND_ROW_STEP(a,b,c,d,e,f,g,h) { \
+  aes_gf28_t __a1 = s[ a ]; \
+  aes_gf28_t __b1 = s[ b ]; \
+  aes_gf28_t __c1 = s[ c ]; \
+  aes_gf28_t __d1 = s[ d ]; \
+  s[ e ] = __a1; \
+  s[ f ] = __b1; \
+  s[ g ] = __c1; \
+  s[ h ] = __d1; \
+}
+
+#define AES_ENC_RND_MIX_STEP(a,b,c,d) { \
+  aes_gf28_t __a1 = s[ a ]; \
+  aes_gf28_t __b1 = s[ b ]; \
+  aes_gf28_t __c1 = s[ c ]; \
+  aes_gf28_t __d1 = s[ d ]; \
+  aes_gf28_t __a2 = aes_gf28_mulx( __a1 ); \
+  aes_gf28_t __b2 = aes_gf28_mulx( __b1 ); \
+  aes_gf28_t __c2 = aes_gf28_mulx( __c1 ); \
+  aes_gf28_t __d2 = aes_gf28_mulx( __d1 ); \
+  aes_gf28_t __a3 = __a1 ^ __a2; \
+  aes_gf28_t __b3 = __b1 ^ __b2; \
+  aes_gf28_t __c3 = __c1 ^ __c2; \
+  aes_gf28_t __d3 = __d1 ^ __d2; \
+  s[ a ] = __a2 ^ __b3 ^ __c1 ^ __d1; \
+  s[ b ] = __a1 ^ __b2 ^ __c3 ^ __d1; \
+  s[ c ] = __a1 ^ __b1 ^ __c2 ^ __d3; \
+  s[ d ] = __a3 ^ __b1 ^ __c1 ^ __d2; \
+}
+
+typedef uint8_t aes_gf28_t;
+typedef uint32_t aes_gf28_row_t;
+typedef uint32_t aes_gf28_col_t;
+
+#include "my_aes.h"
+
+aes_gf28_t aes_gf28_add( aes_gf28_t a, aes_gf28_t b ) {
+  return a ^ b;
+}
+
+aes_gf28_t aes_gf28_mulx( aes_gf28_t a ) {
+  // multiplying by X
+  if ( ( a & 0x80 ) == 0x80 ) {
+    // X^8 = X^4 + X^3 + X^1 + 1 = 0x1B
+    // 0x1B = 0 0 0 1 1 0 1 1
+    return 0x1B ^ ( a << 1 );
+  }else{
+    return ( a << 1 );
+  }
+}
+
+aes_gf28_t aes_gf28_mul( aes_gf28_t a, aes_gf28_t b ) {
+  aes_gf28_t t = 0;
+  for(int i = 7; i >= 0; i-- ) {
+    t = aes_gf28_mulx( t );
+    if ( ( b >> i ) & 1 ) {
+      t ^= a;
+    }
+  }
+  return t;
+}
+
+aes_gf28_t aes_gf28_inv( aes_gf28_t a ) {
+  // Compute a ^ 254 based on LaGrange
+  aes_gf28_t t_0 = aes_gf28_mul( a, a ); // a ^ 2
+  aes_gf28_t t_1 = aes_gf28_mul( t_0, a );
+  t_0 = aes_gf28_mul( t_0, t_0 );
+  t_1 = aes_gf28_mul( t_1, t_0 );
+  t_0 = aes_gf28_mul( t_0, t_0 );
+  t_0 = aes_gf28_mul( t_1, t_0 );
+  t_0 = aes_gf28_mul( t_0, t_0 );
+  t_0 = aes_gf28_mul( t_0, t_0 );
+  t_1 = aes_gf28_mul( t_1, t_0 );
+  t_0 = aes_gf28_mul( t_0, t_1 );
+  t_0 = aes_gf28_mul( t_0, t_0 );
+  return t_0;
+}
+
+aes_gf28_t aes_enc_sbox( aes_gf28_t a ) {
+  a = aes_gf28_inv( a );
+  a = ( 0x63    ) ^
+      ( a       ) ^
+      ( a << 1 ) ^
+      ( a << 2 ) ^
+      ( a << 3 ) ^
+      ( a << 4 ) ^
+      ( a >> 7 ) ^
+      ( a >> 6 ) ^
+      ( a >> 5 ) ^
+      ( a >> 4 ) ;
+  return a;
+}
+
+aes_gf28_t aes_dec_sbox( aes_gf28_t a ) {
+  a = ( 0x05    ) ^
+  ( a << 1 ) ^
+  ( a << 3 ) ^
+  ( a << 6 ) ^
+  ( a >> 7 ) ^
+  ( a >> 5 ) ^
+  ( a >> 2 ) ;
+  a = aes_gf28_inv( a );
+  return a;
+}
+
+void aes_enc_keyexp_step( uint8_t* r, const uint8_t* rk, uint8_t rc ) {
+r[  0 ] = rc ^ aes_enc_sbox( rk[ 13 ] ) ^ rk[  0 ];
+r[  1 ] =       aes_enc_sbox( rk[ 14 ] ) ^ rk[  1 ];
+r[  2 ] =       aes_enc_sbox( rk[ 15 ] ) ^ rk[  2 ];
+r[  3 ] =       aes_enc_sbox( rk[ 12 ] ) ^ rk[  3 ];
+r[  4 ] =                        r[  0 ]    ^ rk[  4 ];
+r[  5 ] =                        r[  1 ]    ^ rk[  5 ];
+r[  6 ] =                        r[  2 ]    ^ rk[  6 ];
+r[  7 ] =                        r[  3 ]    ^ rk[  7 ];
+r[  8 ] =                        r[  4 ]    ^ rk[  8 ];
+r[  9 ] =                        r[  5 ]    ^ rk[  9 ];
+r[ 10 ] =                        r[  6 ]    ^ rk[ 10 ];
+r[ 11 ] =                        r[  7 ]    ^ rk[ 11 ];
+r[ 12 ] =                        r[  8 ]    ^ rk[ 12 ];
+r[ 13 ] =                        r[  9 ]    ^ rk[ 13 ];
+r[ 14 ] =                        r[ 10 ]    ^ rk[ 14 ];
+r[ 15 ] =                        r[ 11 ]    ^ rk[ 15 ];
+}
+
+void aes_enc_rnd_key( aes_gf28_t* s, const aes_gf28_t* rk ) {
+  // AES_ENC_RND_KEY_STEP(  0,  1,  2,  3 );
+  // AES_ENC_RND_KEY_STEP(  4,  5,  6,  7 );
+  // AES_ENC_RND_KEY_STEP(  8,  9, 10, 11 );
+  // AES_ENC_RND_KEY_STEP( 12, 13, 14, 15 );
+  for(int i = 0; i < 16; i++){
+    s[i] = s[i] ^ rk[i];
+  }
+}
+
+void aes_enc_sub_key( aes_gf28_t* s, const aes_gf28_t* rk ){
+  for(int i = 0; i < 16; i++){
+    s[i] = aes_enc_sbox(s[i]);
+  }
+}
+
+void aes_enc_rnd_sub(        aes_gf28_t* s ) {
+  for(int i = 0; i < 16; i++ ) {
+    s[ i ] = aes_enc_sbox( s[ i ] );
+  }
+}
+
+void aes_enc_rnd_row(        aes_gf28_t* s ) {
+  AES_ENC_RND_ROW_STEP(  1,  5,  9, 13, 13,  1,  5,  9 );
+  AES_ENC_RND_ROW_STEP(  2,  6, 10, 14, 10, 14,  2,  6 );
+  AES_ENC_RND_ROW_STEP(  3,  7, 11, 15, 7, 11, 15,  3 );
+}
+
+void aes_enc_rnd_mix(        aes_gf28_t* s ) {
+  AES_ENC_RND_MIX_STEP(  0,  1,  2,  3 );
+  AES_ENC_RND_MIX_STEP(  4,  5,  6,  7 );
+  AES_ENC_RND_MIX_STEP(  8,  9, 10, 11 );
+  AES_ENC_RND_MIX_STEP( 12, 13, 14, 15 );
+}
+
+void aes_enc( uint8_t* r, const uint8_t* m, const uint8_t* k ) {
+  aes_gf28_t rk[ 4 * Nb ], s[ 4 * Nb ];
+  aes_gf28_t rcp[10] = {0x01, 0x02, 0x04, 0x08, 0x10, 0x20, 0x40, 0x80, 0x1B, 0x36};
+  // aes_gf28_t *rcp = rcp2;
+  aes_gf28_t* rkp = rk;
+  // U8_TO_U8_N(    s, m );
+  memcpy(s, m, 16 * sizeof(uint8_t));
+  // U8_TO_U8_N( rkp, k );
+  memcpy(rkp, k, 16 * sizeof(uint8_t));
+  aes_enc_rnd_key( s, rkp );
+  for(int i = 1; i < Nr; i++ ) {
+    aes_enc_rnd_sub( s       );
+    aes_enc_rnd_row( s       );
+    aes_enc_rnd_mix( s       );
+    aes_enc_keyexp_step( rkp, rkp, rcp[i-1] );
+    aes_enc_rnd_key( s, rkp );
+  }
+  aes_enc_rnd_sub( s       );
+  aes_enc_rnd_row( s       );
+  aes_enc_keyexp_step( rkp, rkp, rcp[Nr - 1] );
+  aes_enc_rnd_key( s, rkp );
+  // U8_TO_U8_N(    r, s );
+  memcpy(r, s, 16 * sizeof(uint8_t));
+}
+
+// ----------------------------------------------------------------
+
+
+
+
+
+
+
+
+
+
+
+
+
 uint8_t hexCharToNum(char c){
   return c > '9' ? c - 55 : c - '0';
 }
@@ -141,6 +350,7 @@ void aes_init(                               const uint8_t* k, const uint8_t* r 
   */
 
 void aes     ( uint8_t* c, const uint8_t* m, const uint8_t* k, const uint8_t* r ) {
+  aes_enc( c, m, k );
   return;
 }
 
@@ -185,8 +395,12 @@ int main( int argc, char* argv[] ) {
   // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'a');
   // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'l');
   // scale_uart_wr(SCALE_UART_MODE_BLOCKING, 'a');
-  uint8_t cmd[ 1 ], c[ SIZEOF_BLK ], m[ SIZEOF_BLK ], k[ SIZEOF_KEY ] = { 0xDB, 0xA2, 0xB8, 0xD5, 0x51, 0x52, 0x8D, 0x31, 0xE1, 0xAC, 0xF4, 0x0D, 0x4B, 0x2D, 0x66, 0x7E }, r[ SIZEOF_RND ];
+  uint8_t cmd[ 1 ], c[ SIZEOF_BLK ], m[ SIZEOF_BLK ], k[ SIZEOF_KEY ] = { 0xCD, 0x97, 0x16, 0xE9, 0x5B, 0x42, 0xDD, 0x48, 0x69, 0x77, 0x2A, 0x34, 0x6A, 0x7F, 0x58, 0x13 }, r[ SIZEOF_RND ];
   // char x[] = "hello world";
+// hCD (16) , 97 (16) , 16 (16) , E9 (16) , 5B (16) , 42 (16) , DD (16) , 48 (16) , 69 (16) , 77 (16) , 2A (16) , 34 (16) , 6A (16) , 7F (16) , 58 (16) , 13 (16) i):
+  // uint8_t k[ SIZEOF_KEY ] = { 0xDB, 0xA2, 0xB8, 0xD5, 0x51, 0x52, 0x8D, 0x31, 0xE1, 0xAC, 0xF4, 0x0D, 0x4B, 0x2D, 0x66, 0x7E }
+
+
   while( true ) {
     // scale_uart_wr(SCALE_UART_MODE_BLOCKING, '1');
     // scale_uart_wr(SCALE_UART_MODE_BLOCKING, '2');
